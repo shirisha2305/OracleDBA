@@ -1,0 +1,46 @@
+
+UNNAMED DATAFILE ISSUE RESOLUTION:
+
+on primary check parameter destination:
+
+SQL> show parameter db_create_file_dest;
+
+NAME				     TYPE	 VALUE
+------------------------------------ ----------- ------------------------------
+db_create_file_dest		     string	 /u01/app/oracle/oradata
+
+SQL> alter system set db_create_file_dest='' scope=both; (in both primary and standby)
+
+SQL> show parameter db_create_file_dest;
+
+desc v$datafile;
+select file#,name from v$datafile;
+select tablespace_name from dba_tablespaces;
+
+su - root
+mkdir -p /u02/datafile
+chown oracle:oinstall /u02/datafile
+chmod 755 /u02/datafile
+
+su - oracle
+sqlplus / as sysdba
+alter tablespace users add datafile '/u02/datafile/users_003.dbf' size 5M autoextend on;
+select file#,name from v$datafile;
+ 
+ 
+ 0n standby:
+select file#,name from v$datafile;
+/u01/app/oracle/product/19.0.0.0/dbhome_1/dbs/UNNAMED00015  ( we will get error like this in standby)
+ 
+ alter system set standby_file_management=MANUAL sid='*';
+ 
+ alter database create datafile '/u01/app/oracle/product/19.0.0.0/dbhome_1/dbs/UNNAMED00015' as'/u01/app/oracle/oradata/TESTDBS/datafile/user_006.dbf' size 50M;
+
+alter system set standby_file_management=AUTO sid='*';
+
+alter database recover managed standby database disconnect from session;
+
+alter system switch logfile;
+
+set lines 300 pages 300;
+SELECT sequence#, first_time, next_time, applied FROM v$archived_log ORDER BY sequence#;
